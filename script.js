@@ -360,20 +360,46 @@ class PlagiarismDetectionApp {
                         <i class="fas fa-cloud-upload-alt"></i>
                         <h3>Upload Your File</h3>
                         <p>Drag and drop your file here or click to browse</p>
-                        <p class="text-muted">Supported formats: PDF, DOC, DOCX, TXT</p>
-                        <input type="file" id="fileInput" accept=".pdf,.doc,.docx,.txt" style="display: none;">
+                        <div class="supported-formats">
+                            <h5>Supported File Types:</h5>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <h6><i class="fas fa-file-alt me-2"></i>Documents</h6>
+                                    <ul class="list-unstyled">
+                                        <li><span class="badge bg-secondary">TXT</span></li>
+                                        <li><span class="badge bg-secondary">PDF</span></li>
+                                        <li><span class="badge bg-secondary">DOC</span></li>
+                                        <li><span class="badge bg-secondary">DOCX</span></li>
+                                    </ul>
+                                </div>
+                                <div class="col-md-6">
+                                    <h6><i class="fas fa-code me-2"></i>Code Files</h6>
+                                    <ul class="list-unstyled">
+                                        <li><span class="badge bg-info">PY</span> Python</li>
+                                        <li><span class="badge bg-info">JAVA</span> Java</li>
+                                        <li><span class="badge bg-info">CPP</span> C++</li>
+                                        <li><span class="badge bg-info">C</span> C</li>
+                                        <li><span class="badge bg-info">JS</span> JavaScript</li>
+                                        <li><span class="badge bg-info">HTML</span> HTML</li>
+                                        <li><span class="badge bg-info">CSS</span> CSS</li>
+                                        <li><span class="badge bg-info">SQL</span> SQL</li>
+                                        <li><span class="badge bg-info">JSON</span> JSON</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        <p class="text-white-50 mt-3">Maximum file size: 16MB</p>
+                        <input type="file" id="fileInput" accept=".txt,.pdf,.doc,.docx,.py,.java,.cpp,.c,.js,.html,.css,.sql,.json" style="display: none;">
                     </div>
                     <div id="fileInfo" class="file-info" style="display: none;">
                         <h4>Selected File:</h4>
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <i class="fas fa-file me-2"></i>
-                                <span id="fileName"></span>
-                            </div>
-                            <button class="btn btn-primary-custom" onclick="app.detectFromFile()">
-                                <i class="fas fa-search me-2"></i>Detect Plagiarism
-                            </button>
+                        <div class="file-details">
+                            <div class="file-type-display"></div>
+                            <div id="fileName" class="file-name"></div>
                         </div>
+                        <button class="btn btn-primary-custom btn-lg mt-3" onclick="app.detectFromFile()">
+                            <i class="fas fa-search me-2"></i>Detect Plagiarism
+                        </button>
                     </div>
                 </div>
             </div>
@@ -748,6 +774,141 @@ class PlagiarismDetectionApp {
             fileName.textContent = file.name;
             fileInfo.style.display = 'block';
             this.selectedFile = file;
+            
+            // Show file type indicator
+            const fileType = this.getFileType(file.name);
+            this.showFileType(file.name, fileType);
+        }
+    }
+
+    getFileType(filename) {
+        const ext = filename.split('.').pop().toLowerCase();
+        const codeExtensions = ['py', 'java', 'cpp', 'c', 'js', 'html', 'css', 'sql', 'json'];
+        const docExtensions = ['txt', 'pdf', 'doc', 'docx'];
+        
+        if (codeExtensions.includes(ext)) {
+            return 'code';
+        } else if (docExtensions.includes(ext)) {
+            return 'document';
+        }
+        return 'unknown';
+    }
+
+    showFileType(filename, fileType) {
+        const fileCard = document.querySelector('.file-info');
+        if (fileCard) {
+            const typeIndicator = document.createElement('div');
+            typeIndicator.className = `file-type-indicator mb-2`;
+            typeIndicator.innerHTML = `
+                <span class="badge ${fileType === 'code' ? 'bg-info' : 'bg-primary'}">
+                    <i class="fas fa-${fileType === 'code' ? 'code' : 'file-alt'} me-1"></i>
+                    ${fileType === 'code' ? 'Code File' : 'Document'}
+                </span>
+                <small class="text-white-50">${filename}</small>
+            `;
+            fileCard.appendChild(typeIndicator);
+        }
+    }
+
+    detectFromFile() {
+        if (!this.selectedFile) {
+            this.showToast('Please select a file first', 'error');
+            return;
+        }
+        
+        this.showToast('Analyzing file...', 'info');
+        
+        // Create FormData for file upload
+        const formData = new FormData();
+        formData.append('file', this.selectedFile);
+        
+        // Send to backend
+        fetch('/upload', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                this.processBackendResult(data.result);
+                this.addToHistory(this.selectedFile.name, data.result.overall_percentage);
+                this.showToast('Analysis complete!', 'success');
+            } else {
+                this.showToast(data.error || 'Analysis failed', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            this.showToast('Analysis failed. Please try again.', 'error');
+        });
+    }
+
+    processBackendResult(result) {
+        // Store result for display
+        this.currentResult = result;
+        
+        // Update the results display with backend data
+        this.updateResultsFromBackend(result);
+        
+        // Navigate to results page
+        this.loadPage('result');
+    }
+
+    updateResultsFromBackend(result) {
+        // Update the result page with backend data
+        if (this.currentPage === 'result') {
+            // This will be handled when the result page loads
+            setTimeout(() => {
+                this.displayBackendResults(result);
+            }, 100);
+        }
+    }
+
+    displayBackendResults(result) {
+        // Update sources table with real data
+        const sourcesBody = document.getElementById('source-results-body');
+        if (sourcesBody && result.sources) {
+            const sourcesHTML = result.sources.map((source, index) => `
+                <tr>
+                    <td>
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-globe me-2 text-primary"></i>
+                            <div>
+                                <div class="fw-bold">${source.name}</div>
+                                <small class="text-white-50">${source.url}</small>
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        <span class="badge ${source.percentage > 50 ? 'bg-danger' : source.percentage > 20 ? 'bg-warning' : 'bg-success'}">
+                            ${source.percentage}%
+                        </span>
+                    </td>
+                    <td>
+                        <small class="text-white-75">${source.matched_content}</small>
+                    </td>
+                </tr>
+            `).join('');
+            
+            sourcesBody.innerHTML = sourcesHTML;
+        }
+        
+        // Update overall percentage
+        const overallPercentage = result.overall_percentage || 0;
+        const percentageElement = document.getElementById('overall-percentage');
+        if (percentageElement) {
+            percentageElement.textContent = `${overallPercentage}%`;
+        }
+        
+        // Update file type indicator
+        const fileTypeElement = document.querySelector('.file-type-display');
+        if (fileTypeElement && result.file_type) {
+            fileTypeElement.innerHTML = `
+                <span class="badge ${result.file_type === 'code' ? 'bg-info' : 'bg-primary'}">
+                    <i class="fas fa-${result.file_type === 'code' ? 'code' : 'file-alt'} me-1"></i>
+                    ${result.file_type === 'code' ? 'Code Analysis' : 'Document Analysis'}
+                </span>
+            `;
         }
     }
 
