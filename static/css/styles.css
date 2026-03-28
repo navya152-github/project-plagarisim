@@ -1,0 +1,22 @@
+body{
+background:#f5f7f6;
+font-family: Arial;
+}
+
+.editor{
+height:160px;
+resize:none;
+}
+
+.card{
+border-radius:12px;
+}
+
+.result-box{
+
+background:#f8f9fa;
+padding:20px;
+border-radius:10px;
+text-align:center;
+
+}
